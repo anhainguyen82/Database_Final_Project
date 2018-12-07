@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 from os import listdir
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
+from bson import json_util
 import json
 import csv
 import datetime
@@ -65,6 +66,27 @@ def handlereview():
     return uploadreview(data)
 
 
+#query Hotels or Reviews collections by Key values.  arg variable will take in three arguments separated by commas.
+#first argument should either be "Hotel" or "Review"
+#second argument should be one of the keys within the collection
+#third argument is what value one wishes to query
+#example query for all reviews for Hotel with the ID 72572: /query/Review,HotelID,72572
+@app.route('/query/<arg>', methods=['GET'])
+def query(arg):
+    arg = arg.split(",")
+    client = MongoClient()
+    db = client.HotelReviews
+    
+    if arg[0] == 'Hotel':
+        db = client.HotelReviews.Hotel
+        return output(db, arg[1], arg[2])
+    elif arg[0] == 'Reviews':
+        db = client.HotelReviews.Reviews
+        return output(db, arg[1], arg[2])
+    else:
+        return jsonify ({"Error": "Please indicate query field for 'Hotel' or 'Reviews'"})
+
+    
 def uploadreview(data):
 
     # Mongo is the chosen database, make sure your MongoDB is running before execution of this program
@@ -142,30 +164,7 @@ def uploadreview(data):
     # turns everything into json
     return jsonify({"Upload Time": currenttime.strftime("%c"),
                     "Hotels Uploaded": len(hotelslog) - 2,
-                    "Reviews Uploaded": len(reviewslog) - 2})
-
-
-## Rest service of one big query allowing user to write different URLs to filter the big query here
-# This is the code I wrote (TW) for assignment 12. I think using something like this might help with what we're trying to do?
-# I am thinking the key will be to use find to get a big query going and help to filter using an URL.
-# I dunno, just trying to make your life easier. Good luck! I believe in you. Slack me if you need me, TW.
-    @app.route('/api/searchDocuments', methods=['GET'])
-    def searchDocuments():
-        try:
-            tag = request.args["tag"]
-            db = MongoClient().myContentStore
-            fileCursor = db.fs.files.find({})
-            fileList = []
-            for file in fileCursor:
-                if tag in file['tags']:
-                    tempJson = {"fileName": file["fileName"], "_id": str(file["_id"]), "tags": file["tags"]}
-                    fileList.append(tempJson)
-
-            return jsonify({'DocumentList': fileList})
-
-        except Exception as e:
-            print(e)
-            return "Error occurred"
+                    "Reviews Uploaded": len(reviewslog) - 2})  
 
 
 def writereviewslog(reviewslog):
@@ -181,6 +180,16 @@ def writehotelslog(hotelslog):
     for item in hotelslog:
         csv.writer(out).writerow(item)
     out.close()
+
+#returns queried documents
+def output(db, arg1, arg2):
+    fileCursor = db.find({arg1: arg2})
+    fileList = []
+    for file in fileCursor:
+        tempJSON = json.loads(json_util.dumps(file))
+        fileList.append(tempJSON)
+     
+    return jsonify(fileList)    
 
 
 # Starts the server for serving Rest Ser.vices
