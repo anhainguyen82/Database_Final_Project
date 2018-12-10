@@ -122,6 +122,8 @@ def uploadreview(data):
         # filter - tells mongo to look for a document for 'key' with specified 'value'
         # upsert = update/insert
         # upsert - updates if document is found, else insert
+        collection.update_one({'HotelID': filedata["HotelInfo"]["HotelID"]}, {'$set': filedata["HotelInfo"]},
+                                      upsert=True)
 
         # mark upload as "Success"
         hotelslog.append([filedata["HotelInfo"]["HotelID"], "Success"])
